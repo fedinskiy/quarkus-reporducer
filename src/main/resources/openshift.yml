@@ -1,0 +1,113 @@
+---
+apiVersion: "v1"
+kind: "List"
+items:
+- apiVersion: "v1"
+  kind: "Service"
+  metadata:
+    labels:
+      app.openshift.io/runtime: "quarkus"
+      app.kubernetes.io/name: "app"
+      scenarioId: "OpenShiftRestIT-wrs1"
+    name: "app"
+    namespace: "wireshark-1"
+  spec:
+    ports:
+    - name: "http"
+      port: 8080
+      targetPort: 8080
+    selector:
+      app.kubernetes.io/name: "app"
+    type: "ClusterIP"
+- apiVersion: "image.openshift.io/v1"
+  kind: "ImageStream"
+  metadata:
+    labels:
+      app.openshift.io/runtime: "quarkus"
+      app.kubernetes.io/name: "app"
+      scenarioId: "OpenShiftRestIT-wrs1"
+    name: "app"
+    namespace: "wireshark-1"
+  spec: {}
+- apiVersion: "image.openshift.io/v1"
+  kind: "ImageStream"
+  metadata:
+    labels:
+      scenarioId: "OpenShiftRestIT-wrs1"
+    name: "image-builder"
+    namespace: "wireshark-1"
+  spec:
+    dockerImageRepository: "registry.access.redhat.com/ubi8/openjdk-11"
+- apiVersion: "build.openshift.io/v1"
+  kind: "BuildConfig"
+  metadata:
+    labels:
+      app.openshift.io/runtime: "quarkus"
+      app.kubernetes.io/name: "app"
+      scenarioId: "OpenShiftRestIT-wrs1"
+    name: "app"
+    namespace: "wireshark-1"
+  spec:
+    output:
+      to:
+        kind: "ImageStreamTag"
+        name: "app:0.0.1-SNAPSHOT"
+    source:
+      binary: {}
+    strategy:
+      sourceStrategy:
+        from:
+          kind: "ImageStreamTag"
+          name: "image-builder:latest"
+- apiVersion: "apps.openshift.io/v1"
+  kind: "DeploymentConfig"
+  metadata:
+    labels:
+      app.openshift.io/runtime: "quarkus"
+      app.kubernetes.io/name: "app"
+      scenarioId: "OpenShiftRestIT-wrs1"
+    name: "app"
+    namespace: "wireshark-1"
+  spec:
+    replicas: 1
+    selector:
+      app.kubernetes.io/name: "app"
+    template:
+      metadata:
+        labels:
+          app.openshift.io/runtime: "quarkus"
+          app.kubernetes.io/name: "app"
+          tsLogWatch: "app"
+          scenarioId: "OpenShiftRestIT-wrs1"
+        namespace: "wireshark-1"
+      spec:
+        containers:
+        - env:
+          - name: "KUBERNETES_NAMESPACE"
+            valueFrom:
+              fieldRef:
+                fieldPath: "metadata.namespace"
+          - name: "QUARKUS_HOME"
+            value: "/home/quarkus/"
+          - name: "QUARKUS_OPTS"
+            value: ""
+          - name: "JAVA_APP_JAR"
+            value: "/deployments/quarkus-run.jar"
+          - name: "quarkus.log.console.format"
+            value: "%d{HH:mm:ss,SSS} %s%e%n"
+          image: "app:0.0.1-SNAPSHOT"
+          imagePullPolicy: "IfNotPresent"
+          name: "app"
+          ports:
+          - containerPort: 8080
+            name: "http"
+            protocol: "TCP"
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - "app"
+        from:
+          kind: "ImageStreamTag"
+          name: "app:0.0.1-SNAPSHOT"
+      type: "ImageChange"
